@@ -1,0 +1,16 @@
+{
+  "name": "backend_setup",
+  "version": "1.0.0",
+  "description": "a setup for backend proj",
+  "keywords": [
+    "js",
+    "backend"
+  ],
+  "license": "ISC",
+  "author": "Anshit Gupta",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
