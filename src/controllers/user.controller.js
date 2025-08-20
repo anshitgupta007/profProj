@@ -127,8 +127,8 @@ const logOutUser = asyncHandler(async (req, res) => {
     //remove refresh token from db
     await User.findByIdAndUpdate(
         req.user._id, {
-        $set: {
-            refreshToken: undefined
+        $unset: {
+            refreshToken: 1
         }
     }, {
         new: true
@@ -145,7 +145,7 @@ const logOutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
 
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const incomingRefreshToken = req?.cookies?.refreshToken || req.body?.refreshToken;
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized access - Refresh token is required");
     }
@@ -256,10 +256,12 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
+    //console.log(req.params);
     const { userName } = req.params;
     if (!userName?.trim()) {
         throw new ApiError(400, "Username is required");
     }
+    
     const channel = await User.aggregate([
         {
             $match: {
