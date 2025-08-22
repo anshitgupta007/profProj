@@ -136,7 +136,50 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+    
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+    if (!req.user || !isValidObjectId(req.user?._id)) {
+        throw new ApiError(401, "User needs to log in");
+    }
+    const {title, description}= req.body;
+    let thumbnailLocalPath =  null;
+    if (req?.file?.fieldname=== "thumbnail"){
+        thumbnailLocalPath = req.file.path;
+
+    }
+    if (!title || title.trim() === "" || !description || description.trim() === "") {
+        throw new ApiError(400, "Title and description are required");
+    }
+    const video = await Video.findById(videoId);
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
+    if (!video.owner.equals(req.user?._id)) {
+        throw new ApiError(403, "You are not authorized to update this video");
+    }
+   
+    if (thumbnailLocalPath){
+        const thumbnail = await uploadOnCLoudinary(thumbnailLocalPath);
+        if (!thumbnail || thumbnail.resource_type !== "image") {
+            throw new ApiError(400, "Invalid thumbnail file uploaded");
+        }
+        // Delete old thumbnail from Cloudinary
+        if (video.thumbnail?.public_id) {
+            await deleteFromCloudinary(video.thumbnail.public_id, "image");
+        }
+        video.thumbnail = {
+            url: thumbnail.secure_url,
+            public_id: thumbnail.public_id
+        };
+    }
+    video.title = title;
+    video.description = description;
+   // console.log(video);
+    await video.save();
+    return res.status(200).json(new ApiResponse(200, video , "Video updated successfully"));
+
 
 })
 const deleteVideo = asyncHandler(async (req, res) => {
