@@ -31,6 +31,37 @@ const createPlaylist = asyncHandler(async (req, res) => {
 const getUserPlaylists = asyncHandler(async (req, res) => {
     const { userId } = req.params
     //TODO: get user playlists
+    const playlists = await Playlist.aggregate([
+        {
+            $match: { owner: new mongoose.Types.ObjectId(userId) }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "videos",
+                foreignField: "_id",
+                as: "videos",
+
+            }
+        },
+        {
+            $addFields: {
+                videoCount: { $size: "$videos" },
+                totalViews: { $sum: "$videos.views" }
+            }
+        },
+        {
+            $project:{
+                videos:0
+            }
+        }
+
+    ])
+    if (!playlists || playlists.length === 0) {
+        throw new ApiError(404, "Playlists not found");
+    }
+    return res.status(200).json(new ApiResponse(200, playlists, "Playlists fetched successfully"));
+
 })
 
 const getPlaylistById = asyncHandler(async (req, res) => {
@@ -215,7 +246,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
         throw new ApiError(401, "User needs to log in");
     }
     const playlist = await Playlist.findOneAndUpdate({ _id: playlistId, owner: req.user._id }, { name, description }, { new: true });
-    if (!playlist){
+    if (!playlist) {
         throw new ApiError(404, "Playlist not found or you are not the owner");
     }
     return res.status(200).json(new ApiResponse(200, playlist, "Playlist updated successfully"));
