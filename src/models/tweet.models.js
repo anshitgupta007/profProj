@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-tweetSchema = new Schema({
+const tweetSchema = new Schema({
     content: {
         type: String,
         required: true
