@@ -30,7 +30,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
     const { userId } = req.params
-    //TODO: get user playlists
+
     const playlists = await Playlist.aggregate([
         {
             $match: { owner: new mongoose.Types.ObjectId(userId) }
@@ -51,8 +51,8 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
             }
         },
         {
-            $project:{
-                videos:0
+            $project: {
+                videos: 0
             }
         }
 
@@ -66,7 +66,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
 const getPlaylistById = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
-    //TODO: get playlist by id
+
     if (!isValidObjectId(playlistId)) {
         throw new ApiError(400, "Invalid playlist ID");
     }
@@ -138,7 +138,9 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         },
         {
             $addFields: {
-                owner: { $first: "$owner" }
+                owner: { $first: "$owner" },
+                videoCount: { $size: "$videos" },
+                totalViews: { $sum: "$videos.views" }
 
             }
         }
@@ -215,7 +217,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 
 const deletePlaylist = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
-    // TODO: delete playlist
+
     if (!playlistId || !isValidObjectId(playlistId)) {
         throw new ApiError(400, "Invalid playlist ID");
     }

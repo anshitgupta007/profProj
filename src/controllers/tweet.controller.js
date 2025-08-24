@@ -1,13 +1,12 @@
 
 import mongoose, { isValidObjectId } from "mongoose"
 import { Tweet } from "../models/tweet.models.js"
-import { User } from "../models/user.models.js"
+import { Like } from "../models/like.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 
 const createTweet = asyncHandler(async (req, res) => {
-    //TODO: create tweet
 
     const { content } = req.body;
     if (!content || content.trim() === "") {
@@ -27,7 +26,7 @@ const createTweet = asyncHandler(async (req, res) => {
 })
 
 const getUserTweets = asyncHandler(async (req, res) => {
-    // TODO: get user tweets
+
     const { userId } = req.params;
     const filter = {};
     if (userId && isValidObjectId(userId)) {
@@ -60,8 +59,25 @@ const getUserTweets = asyncHandler(async (req, res) => {
 
     },
     {
+        $lookup: {
+            from: "likes",
+            localField: "_id",
+            foreignField: "tweet",
+            as: "likes"
+        }
+    },
+    {
         $addFields: {
-            owner: { $first: "$owner" }
+            owner: { $first: "$owner" },
+            likeCount: { $size: "$likes" },
+
+
+        },
+
+    },
+    {
+        $project: {
+            likes: 0,
 
         }
     }
@@ -73,7 +89,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
 })
 
 const updateTweet = asyncHandler(async (req, res) => {
-    //TODO: update tweet
+
     const { tweetId } = req.params;
     const { content } = req.body;
     if (!tweetId || !isValidObjectId(tweetId)) {
@@ -105,7 +121,7 @@ const updateTweet = asyncHandler(async (req, res) => {
 })
 
 const deleteTweet = asyncHandler(async (req, res) => {
-    //TODO: delete tweet
+
     const { tweetId } = req.params;
     if (!tweetId || !isValidObjectId(tweetId)) {
         throw new ApiError(400, "Invalid tweetId");
@@ -120,6 +136,13 @@ const deleteTweet = asyncHandler(async (req, res) => {
     if (!tweet) {
         throw new ApiError(404, "Tweet not found or user not authorized");
     }
+    try {
+        await Like.deleteMany({ tweet: tweet._id });
+    }
+    catch (err) {
+        throw new ApiError(500, "Failed to delete likes associated with the tweet");
+    }
+
     return res.status(200).json(new ApiResponse(200, {}, "Tweet deleted successfully"));
 
 })

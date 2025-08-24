@@ -8,7 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 
 const toggleSubscription = asyncHandler(async (req, res) => {
     const { channelId } = req.params
-    // TODO: toggle subscription
+
     //channelId is the id of the user who is the owner of the channel
     //req.user.id is the id of the user who is subscribing to the channel
     if (!req.user || !isValidObjectId(req.user?._id)) {
@@ -51,7 +51,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
 // controller to return subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
-    const { subscriberId:channelId } = req.params
+    const { subscriberId: channelId } = req.params
     if (!req.user || !isValidObjectId(req.user?._id)) {
         throw new ApiError(401, "User needs to log in");
     }
@@ -83,7 +83,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 subscriber: { $first: "$subscriber" },
-                subscriberCount: { $size: "$subscriber" }
+
 
             }
         }
@@ -133,11 +133,10 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 channel: { $first: "$channel" },
-                channelCount: { $size: "$channel" }
-                
+
             }
         },
-       
+
 
     ])
     if (!subscribedChannels) {

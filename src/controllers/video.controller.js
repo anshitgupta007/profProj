@@ -1,6 +1,8 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Video } from "../models/video.models.js"
 import { User } from "../models/user.models.js"
+import { Like } from "../models/like.models.js"
+import { Comment } from "../models/comment.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -174,8 +176,41 @@ const getVideoById = asyncHandler(async (req, res) => {
             }
         },
         {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes"
+            }
+        },
+        {
+            $lookup: {
+                from: "comments",
+                localField: "_id",
+                foreignField: "video",
+                as: "comments"
+            }
+        },
+        {
             $addFields: {
-                owner: { $first: "$owner" }
+                owner: { $first: "$owner" },
+                likesCount: { $size: "$likes" },
+                commentsCount: { $size: "$comments" },
+                isLiked: {
+                    $cond: {
+                        if: { $in: [req.user._id, "$likes.likedBy"] },
+                        then: true,
+                        else: false
+                    }
+                }
+
+            }
+        },
+        {
+            $project: {
+                likes: 0,
+                comments: 0
+
             }
         }
     ]);
@@ -269,6 +304,15 @@ const deleteVideo = asyncHandler(async (req, res) => {
     if (video.thumbnail?.public_id) {
         await deleteFromCloudinary(video.thumbnail.public_id, "image");
     }
+    // delete video likes
+    await Like.deleteMany({
+        video: videoId
+    })
+
+    // delete video comments
+    await Comment.deleteMany({
+        video: videoId,
+    })
 
     await video.deleteOne();
 

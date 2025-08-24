@@ -1,33 +1,45 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Like } from "../models/like.models.js"
+import { Video } from "../models/video.models.js"
+import { Tweet } from "../models/tweet.models.js"
+import { Comment } from "../models/comment.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: toggle like on video
+
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID")
     }
     if (!req.user || !req.user?._id) {
         throw new ApiError(401, "user not authenticated")
     }
+    const video = await Video.findById(videoId).select('_id isPublished');
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
 
-    const existingLike = await Like.findOne({ video: videoId, likedBy: req.user._id });
-    if (existingLike) {
+    if (!video.isPublished) {
+        throw new ApiError(403, "Cannot like unpublished video");
+    }
 
-        await existingLike.deleteOne();
+
+    const like = await Like.findOneAndDelete({ video: videoId, likedBy: req.user._id });
+    if (like) {
         return res.status(200).json(new ApiResponse(200, "Video unliked successfully", { liked: false }));
     }
-    const newLike = await Like.create({ video: videoId, likedBy: req.user._id });
+
+    await Like.create({ video: videoId, likedBy: req.user._id });
     return res.status(200).json(new ApiResponse(200, "Video liked successfully", { liked: true }));
+
 
 })
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
     const { commentId } = req.params
-    //TODO: toggle like on comment
+
     if (!isValidObjectId(commentId)) {
         throw new ApiError(400, "Invalid video ID")
     }
@@ -35,41 +47,46 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
         throw new ApiError(401, "user not authenticated")
     }
 
-    const existingLike = await Like.findOne({ comment: commentId, likedBy: req.user._id });
-    if (existingLike) {
+    const comment = await Comment.exists({ _id: commentId });
+    if (!comment) throw new ApiError(404, "Comment not found");
 
-        await existingLike.deleteOne();
+    const like = await Like.findOneAndDelete({ comment: commentId, likedBy: req.user._id });
+    if (like) {
         return res.status(200).json(new ApiResponse(200, "Comment unliked successfully", { liked: false }));
     }
-    const newLike = await Like.create({ comment: commentId, likedBy: req.user._id });
+
+    await Like.create({ comment: commentId, likedBy: req.user._id });
     return res.status(200).json(new ApiResponse(200, "Comment liked successfully", { liked: true }));
+
 
 
 })
 
 const toggleTweetLike = asyncHandler(async (req, res) => {
     const { tweetId } = req.params
-    //TODO: toggle like on tweet
+
     if (!isValidObjectId(tweetId)) {
         throw new ApiError(400, "Invalid video ID")
     }
     if (!req.user || !req.user?._id) {
         throw new ApiError(401, "user not authenticated")
     }
-
-    const existingLike = await Like.findOne({ tweet: tweetId, likedBy: req.user._id });
-    if (existingLike) {
-
-        await existingLike.deleteOne();
+    //check if tweet exists
+    const tweet = await Tweet.findById(tweetId).select('_id');
+    if (!tweet) {
+        throw new ApiError(404, "Tweet not found");
+    }
+    const like = await Like.findOneAndDelete({ tweet: tweetId, likedBy: req.user._id });
+    if (like) {
         return res.status(200).json(new ApiResponse(200, "Tweet unliked successfully", { liked: false }));
     }
-    const newLike = await Like.create({ tweet: tweetId, likedBy: req.user._id });
+    await Like.create({ tweet: tweetId, likedBy: req.user._id });
     return res.status(200).json(new ApiResponse(200, "Tweet liked successfully", { liked: true }));
 }
 )
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-    //TODO: get all liked videos
+
 
     if (!req.user || !req.user?._id) {
         throw new ApiError(401, "user not authenticated")
@@ -101,13 +118,14 @@ const getLikedVideos = asyncHandler(async (req, res) => {
             }
         },
         {
-            $addFields:{
+            $addFields: {
                 video: { $first: "$video" }
             }
         }
-        
+
     ]);
-    if (likedVideos.length === 0) {
+
+    if (!likedVideos || likedVideos.length === 0) {
         return res.status(200).json(new ApiResponse(200, [], "No liked videos found"))
     }
     return res.status(200).json(new ApiResponse(200, likedVideos, "Liked videos fetched successfully"))

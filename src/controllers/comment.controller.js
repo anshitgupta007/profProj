@@ -1,12 +1,13 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Comment } from "../models/comment.models.js"
 import { Video } from "../models/video.models.js"
+import { Like } from "../models/like.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
-    //TODO: get all comments for a video
+
     const { videoId } = req.params
     let { page = 1, limit = 10 } = req.query
     page = parseInt(page, 10);
@@ -44,14 +45,24 @@ const getVideoComments = asyncHandler(async (req, res) => {
             }
         },
         {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "comment",
+                as: "likes"
+            }
+        },
+        {
             $addFields: {
-                owner: { $first: "$owner" }
+                owner: { $first: "$owner" },
+                likeCount: { $size: "$likes" }
             }
         },
         { $sort: { createdAt: -1 } },
         {
             $project: {
-                video: 0
+                video: 0,
+                likes: 0
             }
         }
 
@@ -59,9 +70,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
     const options = {
         page,
-        limit,}
+        limit,
+    }
     const commentsPaginated = await Comment.aggregatePaginate(comments, options);
-    if (!commentsPaginated){
+    if (!commentsPaginated) {
         throw new ApiError(500, "Failed to fetch comments");
     }
 
@@ -71,7 +83,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
 })
 
 const addComment = asyncHandler(async (req, res) => {
-    // TODO: add a comment to a video
+
     const { videoId } = req.params;
     const { content } = req.body;
     if (!videoId || !isValidObjectId(videoId)) {
@@ -82,6 +94,11 @@ const addComment = asyncHandler(async (req, res) => {
     }
     if (!req.user || !req.user._id) {
         throw new ApiError(401, "User needs to log in");
+    }
+    //check if video exists
+    const videoExist = await Video.exists({ _id: videoId, isPublished: true });
+    if (!videoExist) {
+        throw new ApiError(404, "Video not found");
     }
     const comment = await Comment.create({
         video: new mongoose.Types.ObjectId(videoId),
@@ -95,7 +112,7 @@ const addComment = asyncHandler(async (req, res) => {
 })
 
 const updateComment = asyncHandler(async (req, res) => {
-    // TODO: update a comment
+
     const { commentId } = req.params;
     const { content } = req.body;
     if (!commentId || !isValidObjectId(commentId)) {
@@ -125,7 +142,7 @@ const updateComment = asyncHandler(async (req, res) => {
 })
 
 const deleteComment = asyncHandler(async (req, res) => {
-    // TODO: delete a comment
+
     const { commentId } = req.params;
 
     if (!commentId || !isValidObjectId(commentId)) {
@@ -142,6 +159,14 @@ const deleteComment = asyncHandler(async (req, res) => {
     if (!comment) {
         throw new ApiError(404, "Comment not found or you're not authorized to delete this comment");
     }
+    try {
+
+        await Like.deleteMany({ comment: comment._id });
+    }
+    catch (err) {
+        throw new ApiError(500, "Failed to delete likes associated with the comment");
+    }
+
     return res.status(200).json(new ApiResponse(200, {}, "Comment deleted successfully"));
 
 
