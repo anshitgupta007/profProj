@@ -134,8 +134,11 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
             $addFields: {
                 channel: { $first: "$channel" },
                 channelCount: { $size: "$channel" }
+                
             }
-        }
+        },
+       
+
     ])
     if (!subscribedChannels) {
         throw new ApiError(500, "Failed to fetch subscribed channels");
